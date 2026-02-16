@@ -88,7 +88,12 @@ export const ZenCanvas = () => {
         }
 
         // Resume Audio Context
-        const resumeAudio = () => audioSystemRef.current.resume();
+        const resumeAudio = () => {
+            audioSystemRef.current.unlock();
+            // Remove listeners once unlocked to save resources
+            window.removeEventListener('click', resumeAudio);
+            window.removeEventListener('touchstart', resumeAudio);
+        };
         window.addEventListener('click', resumeAudio);
         window.addEventListener('touchstart', resumeAudio);
 
