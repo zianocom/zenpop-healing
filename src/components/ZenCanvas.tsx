@@ -4,17 +4,23 @@ import { BubbleSystem } from '../game/BubbleSystem';
 import { AudioSystem } from '../game/AudioSystem';
 import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';
 import { PaymentComponent } from './PaymentComponent';
-import { X, Gem } from 'lucide-react';
+import { X, Gem, Volume2, VolumeX } from 'lucide-react';
 import { incrementGlobalPops, subscribeToGlobalPops } from '../services/db';
 
 export const ZenCanvas = () => {
     const { videoRef, results, isLoading, startCamera, error, modelStatus } = useHandTracking();
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const audioSystemRef = useRef<AudioSystem>(new AudioSystem());
+    // Lazy init AudioSystem to avoid creating contexts on every render
+    const audioSystemRef = useRef<AudioSystem | null>(null);
+    if (!audioSystemRef.current) {
+        audioSystemRef.current = new AudioSystem();
+    }
+
     const requestRef = useRef<number | undefined>(undefined);
 
     const [quote, setQuote] = useState<string | null>(null);
     const [showPayment, setShowPayment] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
 
     // Global Stats
     const [globalPops, setGlobalPops] = useState(0);
@@ -36,17 +42,27 @@ export const ZenCanvas = () => {
         setTimeout(() => setQuote(null), 3000);
     };
 
+    // Initialize BubbleSystem
     const bubbleSystemRef = useRef<BubbleSystem>(new BubbleSystem(
         () => {
-            audioSystemRef.current.playPop();
-            localPopsRef.current += 1; // Track locally
+            if (!isMuted && audioSystemRef.current) audioSystemRef.current.playPop();
+            localPopsRef.current += 1;
         },
         () => {
-            audioSystemRef.current.playPop(0.5); // Golden Pop (Higher pitch variation?)
-            localPopsRef.current += 5; // Golden bubbles count more?
+            if (!isMuted && audioSystemRef.current) audioSystemRef.current.playPop(0.5);
+            localPopsRef.current += 5;
             fetchHealingQuote();
         }
     ));
+
+    const toggleMute = () => {
+        if (isMuted) {
+            setIsMuted(false);
+            if (audioSystemRef.current) audioSystemRef.current.unlock();
+        } else {
+            setIsMuted(true);
+        }
+    };
 
     // Sync Global Pops
     useEffect(() => {
@@ -63,7 +79,6 @@ export const ZenCanvas = () => {
         return () => {
             unsubscribe();
             clearInterval(syncInterval);
-            // Push remaining on unmount
             if (localPopsRef.current > 0) incrementGlobalPops(localPopsRef.current);
         };
     }, []);
@@ -80,19 +95,15 @@ export const ZenCanvas = () => {
         };
 
         window.addEventListener('resize', resize);
-        // Delay initial resize to ensure element is sized
         setTimeout(resize, 100);
 
         if (isLoading) {
             startCamera();
         }
 
-        // Resume Audio Context
+        // Resume Audio Context on interaction
         const resumeAudio = () => {
-            audioSystemRef.current.unlock();
-            // Remove listeners once unlocked to save resources
-            window.removeEventListener('click', resumeAudio);
-            window.removeEventListener('touchstart', resumeAudio);
+            if (audioSystemRef.current) audioSystemRef.current.unlock();
         };
         window.addEventListener('click', resumeAudio);
         window.addEventListener('touchstart', resumeAudio);
@@ -322,10 +333,16 @@ export const ZenCanvas = () => {
                 </div>
             </div>
 
-            <div className="absolute top-4 right-4 z-20 flex gap-2">
+            <div className="absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto">
+                <button
+                    onClick={toggleMute}
+                    className="p-3 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-md transition-all shadow-lg border border-white/10"
+                >
+                    {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
                 <button
                     onClick={() => setShowPayment(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-500/80 hover:bg-yellow-500 text-white rounded-full backdrop-blur transition-all shadow-lg"
+                    className="flex items-center gap-2 px-4 py-2 bg-yellow-500/80 hover:bg-yellow-500 text-white rounded-full backdrop-blur transition-all shadow-lg font-['Gowun_Dodum']"
                 >
                     <Gem size={18} />
                     <span>Premium</span>
