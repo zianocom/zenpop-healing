@@ -165,25 +165,48 @@ export const ZenCanvas = () => {
 
     const manualPointerRef = useRef<{ x: number, y: number } | null>(null);
 
-    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (!canvasRef.current) return;
+    // Helper to get coordinates relative to canvas
+    const getPointerPos = (e: React.PointerEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+        if (!canvasRef.current) return null;
         const rect = canvasRef.current.getBoundingClientRect();
-        manualPointerRef.current = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+
+        let clientX, clientY;
+        if ('touches' in e) {
+            // Touch Event
+            if (e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                return null;
+            }
+        } else {
+            // Mouse/Pointer Event
+            clientX = (e as React.MouseEvent).clientX;
+            clientY = (e as React.MouseEvent).clientY;
+        }
+
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
         };
+    };
+
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        // Prevent default browser actions (scrolling, zooming)
+        e.preventDefault();
+
+        const pos = getPointerPos(e);
+        if (pos) manualPointerRef.current = pos;
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (!manualPointerRef.current || !canvasRef.current) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        manualPointerRef.current = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
+        e.preventDefault();
+        const pos = getPointerPos(e);
+        if (pos) manualPointerRef.current = pos;
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        e.preventDefault();
         manualPointerRef.current = null;
     };
 
@@ -264,6 +287,7 @@ export const ZenCanvas = () => {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
+            style={{ touchAction: 'none' }}
         >
             <video
                 ref={videoRef}
