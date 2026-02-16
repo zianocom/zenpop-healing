@@ -29,18 +29,23 @@ export class AudioSystem {
         osc.connect(gain);
         gain.connect(this.audioContext.destination);
 
-        // Random Pitch Modulation
-        const baseFreq = 400 + Math.random() * 200; // 400-600Hz
-        const randomDetune = (Math.random() - 0.5) * 1000; // +/- variation cents
+        // Realistic Bubble Wrap "Pop"
+        // Needs a sharp attack and very quick frequency drop
+        const t = this.audioContext.currentTime;
 
-        osc.frequency.setValueAtTime(baseFreq, this.audioContext.currentTime);
-        osc.detune.setValueAtTime(randomDetune, this.audioContext.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15); // Quick drop "Pop" sound
+        // Higher base pitch, rapid drop
+        // Variation: 600-800Hz base
+        const baseFreq = 700 + Math.random() * 200;
 
-        gain.gain.setValueAtTime(volume, this.audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+        osc.frequency.setValueAtTime(baseFreq, t);
+        osc.frequency.exponentialRampToValueAtTime(100, t + 0.08); // Fast sweep down
 
-        osc.start();
-        osc.stop(this.audioContext.currentTime + 0.2);
+        // Envelope
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(volume * 1.5, t + 0.01); // Instant attack
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); // Short decay
+
+        osc.start(t);
+        osc.stop(t + 0.15);
     }
 }
