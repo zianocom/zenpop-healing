@@ -8,7 +8,7 @@ import { X, Gem } from 'lucide-react';
 import { incrementGlobalPops, subscribeToGlobalPops } from '../services/db';
 
 export const ZenCanvas = () => {
-    const { videoRef, results, isLoading, startCamera } = useHandTracking();
+    const { videoRef, results, isLoading, startCamera, error, modelStatus } = useHandTracking();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const audioSystemRef = useRef<AudioSystem>(new AudioSystem());
     const requestRef = useRef<number | undefined>(undefined);
@@ -242,8 +242,16 @@ export const ZenCanvas = () => {
             />
 
             {/* UI Layer */}
-            <div className="absolute top-4 left-4 z-20 text-white font-light backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full">
-                Global Pops: <span className="font-bold text-yellow-300">{globalPops.toLocaleString()}</span>
+            <div className="absolute top-4 left-4 z-20 flex flex-col items-start gap-2">
+                <div className="text-white font-light backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full">
+                    Global Pops: <span className="font-bold text-yellow-300">{globalPops.toLocaleString()}</span>
+                </div>
+                {/* Mobile Debug Info */}
+                <div className="text-xs text-white/70 bg-black/30 px-2 py-1 rounded backdrop-blur-sm">
+                    Status: {modelStatus} <br />
+                    Hands: {results?.landmarks?.length || 0}
+                    {error && <span className="text-red-400 block font-bold">{error}</span>}
+                </div>
             </div>
 
             <div className="absolute top-4 right-4 z-20 flex gap-2">
@@ -287,6 +295,7 @@ export const ZenCanvas = () => {
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-12 h-12 border-4 border-t-blue-500 rounded-full animate-spin"></div>
                         <p>Loading Zen Vision...</p>
+                        <p className="text-sm text-gray-400">{modelStatus}</p>
                     </div>
                 </div>
             )}

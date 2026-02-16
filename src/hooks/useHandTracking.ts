@@ -9,12 +9,17 @@ export const useHandTracking = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const requestRef = useRef<number | undefined>(undefined);
 
+    const [error, setError] = useState<string | null>(null);
+    const [modelStatus, setModelStatus] = useState<string>("Initializing...");
+
     useEffect(() => {
         const createLandmarker = async () => {
             try {
+                setModelStatus("Loading Vision Tasks...");
                 const vision = await FilesetResolver.forVisionTasks(
                     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
                 );
+                setModelStatus("Loading Hand Model...");
                 const handLandmarker = await HandLandmarker.createFromOptions(vision, {
                     baseOptions: {
                         modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
@@ -25,16 +30,19 @@ export const useHandTracking = () => {
                 });
                 setLandmarker(handLandmarker);
                 setIsLoading(false);
-            } catch (error) {
-                console.error("Error creating hand landmarker:", error);
+                setModelStatus("Ready");
+            } catch (err: any) {
+                console.error("Error creating hand landmarker:", err);
+                setError(`Model Error: ${err.message}`);
                 setIsLoading(false);
+                setModelStatus("Failed");
             }
         };
 
         createLandmarker();
 
-        return () => { // Cleanup not explicitly needed for singleton but good practice
-            // landmarker?.close(); // HandLandmarker doesn't have close() in all versions, checking docs
+        return () => {
+            // Cleanup
         };
     }, []);
 
@@ -45,9 +53,14 @@ export const useHandTracking = () => {
         // Ensure video is playing
         if (videoRef.current.paused || videoRef.current.ended) return;
 
-        const startTimeMs = performance.now();
-        const result = landmarker.detectForVideo(videoRef.current, startTimeMs);
-        setResults(result);
+        try {
+            const startTimeMs = performance.now();
+            const result = landmarker.detectForVideo(videoRef.current, startTimeMs);
+            setResults(result);
+        } catch (err: any) {
+            console.error("Prediction error:", err);
+            // setError(`Predict Error: ${err.message}`); // Don't spam UI
+        }
 
         requestRef.current = requestAnimationFrame(predictWebcam);
     }, [landmarker]);
@@ -56,6 +69,7 @@ export const useHandTracking = () => {
         if (!videoRef.current) return;
 
         try {
+            setModelStatus("Requesting Camera...");
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: "user",
@@ -65,19 +79,13 @@ export const useHandTracking = () => {
             });
             videoRef.current.srcObject = stream;
             videoRef.current.addEventListener('loadeddata', predictWebcam);
-        } catch (err) {
+            setModelStatus("Camera Active");
+        } catch (err: any) {
             console.error("Error accessing webcam:", err);
+            setError(`Camera Error: ${err.message}`);
+            setModelStatus("Camera Failed");
         }
     };
 
-    // Clean up animation frame on unmount
-    useEffect(() => {
-        return () => {
-            if (requestRef.current) {
-                cancelAnimationFrame(requestRef.current);
-            }
-        }
-    }, []);
-
-    return { videoRef, results, isLoading, startCamera };
+    return { videoRef, results, isLoading, startCamera, error, modelStatus };
 };
