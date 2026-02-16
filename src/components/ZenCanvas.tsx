@@ -163,6 +163,30 @@ export const ZenCanvas = () => {
         return { x: screenX, y: screenY };
     };
 
+    const manualPointerRef = useRef<{ x: number, y: number } | null>(null);
+
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        manualPointerRef.current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    };
+
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!manualPointerRef.current || !canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        manualPointerRef.current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    };
+
+    const handlePointerUp = () => {
+        manualPointerRef.current = null;
+    };
+
     useEffect(() => {
         const loop = () => {
             if (canvasRef.current) {
@@ -170,8 +194,10 @@ export const ZenCanvas = () => {
                 if (ctx) {
                     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-                    // 1. Calculate Pointers
+                    // 1. Calculate Pointers (Camera + Manual)
                     const pointers: { x: number, y: number }[] = [];
+
+                    // Camera Input
                     if (resultsRef.current && resultsRef.current.landmarks) {
                         for (const landmarks of resultsRef.current.landmarks) {
                             const indexTip = landmarks[8];
@@ -182,39 +208,46 @@ export const ZenCanvas = () => {
                         }
                     }
 
+                    // Manual Input (Touch/Mouse)
+                    if (manualPointerRef.current) {
+                        pointers.push(manualPointerRef.current);
+                    }
+
                     // 2. Update Physics
                     bubbleSystemRef.current.update(pointers);
                     bubbleSystemRef.current.draw(ctx);
 
-                    // 3. Draw Debug Skeleton if needed
+                    // 3. Draw Debug Visuals
+                    // Draw Camera Pointer
                     if (resultsRef.current && resultsRef.current.landmarks) {
-                        // DrawingUtils draws directly to canvas using normalized coordinates context.
-                        // But since correct mapping is complex with object-cover,
-                        // Let's just draw generic circles at our calculated hit points to verify sync.
+                        const cameraPointers: { x: number, y: number }[] = [];
+                        for (const landmarks of resultsRef.current.landmarks) {
+                            const indexTip = landmarks[8];
+                            if (indexTip) {
+                                cameraPointers.push(calculateScreenCoordinates(indexTip.x, indexTip.y));
+                            }
+                        }
 
-                        pointers.forEach(p => {
+                        cameraPointers.forEach(p => {
                             ctx.beginPath();
                             ctx.arc(p.x, p.y, 10, 0, 2 * Math.PI);
-                            ctx.fillStyle = "rgba(255, 0, 0, 0.5)"; // Semi-transparent red
+                            ctx.fillStyle = "rgba(255, 0, 0, 0.5)"; // Camera: Red
                             ctx.fill();
                             ctx.strokeStyle = "white";
                             ctx.lineWidth = 2;
                             ctx.stroke();
                         });
+                    }
 
-                        // Optional: Keep original skeleton if it looks okay, but it might be misaligned.
-                        // Let's comment out the potentially misleading skeleton for now
-                        /*
-                        ctx.save();
-                        ctx.scale(-1, 1);
-                        ctx.translate(-canvasRef.current.width, 0);
-                        const drawingUtils = new DrawingUtils(ctx);
-                        for (const landmarks of resultsRef.current.landmarks) {
-                            drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, { color: "#00FF00", lineWidth: 5 });
-                            drawingUtils.drawLandmarks(landmarks, { color: "#FF0000", lineWidth: 2 });
-                        }
-                        ctx.restore();
-                        */
+                    // Draw Touch Pointer
+                    if (manualPointerRef.current) {
+                        ctx.beginPath();
+                        ctx.arc(manualPointerRef.current.x, manualPointerRef.current.y, 15, 0, 2 * Math.PI);
+                        ctx.fillStyle = "rgba(0, 255, 255, 0.5)"; // Touch: Cyan
+                        ctx.fill();
+                        ctx.strokeStyle = "white";
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
                     }
                 }
             }
@@ -225,7 +258,13 @@ export const ZenCanvas = () => {
     }, []);
 
     return (
-        <div className="relative w-full h-full bg-slate-900">
+        <div
+            className="relative w-full h-full bg-slate-900 touch-none"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+        >
             <video
                 ref={videoRef}
                 className="absolute top-0 left-0 w-full h-full object-cover -scale-x-100 opacity-80 pointer-events-none"
