@@ -310,9 +310,9 @@ export const ZenCanvas = () => {
             />
 
             {/* UI Layer */}
-            <div className="absolute top-4 left-4 z-20 flex flex-col items-start gap-2">
-                <div className="text-white font-light backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full">
-                    Global Pops: <span className="font-bold text-yellow-300">{globalPops.toLocaleString()}</span>
+            <div className="absolute top-4 left-4 z-20 flex flex-col items-start gap-2 select-none pointer-events-none">
+                <div className="text-white font-bold backdrop-blur-md bg-black/40 px-5 py-2 rounded-full border border-white/10 shadow-lg">
+                    POP: <span className="text-yellow-400 text-xl ml-1">{globalPops.toLocaleString()}</span>
                 </div>
                 {/* Mobile Debug Info */}
                 <div className="text-xs text-white/70 bg-black/30 px-2 py-1 rounded backdrop-blur-sm">

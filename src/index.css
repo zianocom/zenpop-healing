@@ -5,6 +5,9 @@
 }
 
 body {
+  font-family: 'Gowun Dodum', 'Noto Sans KR', sans-serif;
+  overflow: hidden;
+  /* Ensure global overflow prevention */
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
