@@ -228,7 +228,7 @@ export const ZenCanvas = () => {
         <div className="relative w-full h-full bg-slate-900">
             <video
                 ref={videoRef}
-                className="absolute top-0 left-0 w-full h-full object-cover -scale-x-100 opacity-80"
+                className="absolute top-0 left-0 w-full h-full object-cover -scale-x-100 opacity-80 pointer-events-none"
                 autoPlay
                 playsInline
                 muted
@@ -236,7 +236,7 @@ export const ZenCanvas = () => {
 
             <canvas
                 ref={canvasRef}
-                className="absolute top-0 left-0 w-full h-full object-cover"
+                className="absolute top-0 left-0 w-full h-full object-cover pointer-events-none"
                 width={1280}
                 height={720}
             />

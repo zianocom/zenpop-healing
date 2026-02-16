@@ -2,7 +2,7 @@ import { ZenCanvas } from './components/ZenCanvas';
 
 function App() {
   return (
-    <div className="w-full h-screen bg-slate-900 overflow-hidden relative">
+    <div className="w-full h-[100dvh] bg-slate-900 overflow-hidden relative touch-none select-none">
       <ZenCanvas />
 
       <div className="absolute top-4 left-4 z-10 p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 select-none pointer-events-none">
