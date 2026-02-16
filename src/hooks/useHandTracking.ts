@@ -56,7 +56,13 @@ export const useHandTracking = () => {
         if (!videoRef.current) return;
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "user",
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
             videoRef.current.srcObject = stream;
             videoRef.current.addEventListener('loadeddata', predictWebcam);
         } catch (err) {

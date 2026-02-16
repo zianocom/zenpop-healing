@@ -1,4 +1,4 @@
-import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';
+
 
 interface Bubble {
     id: string;
@@ -70,27 +70,8 @@ export class BubbleSystem {
         }
     }
 
-    update(results: HandLandmarkerResult | null) {
-        if (!results || !results.landmarks) return;
-
-        for (const landmarks of results.landmarks) {
-            // Index finger tip is index 8
-            const indexTip = landmarks[8];
-            if (!indexTip) continue;
-
-            // Convert normalized coordinates to pixel coordinates
-            // MediaPipe x is 0-1 (left-right), y is 0-1 (top-bottom)
-            // BUT, our canvas might be mirrored or not.
-            // Component usually mirrors rendering. If we render mirrored, we should process mirrored?
-            // Usually, if we draw the camera frame mirrored (-scale-x-100), the visual x is (1-x).
-            // But the bubbles are drawn in "world space".
-            // If the video is mirrored via CSS transform, the input coordinates from mouse/touch need checking.
-            // BUT here we use landmarks. Landmarks are normalized 0-1 relative to image.
-            // If we draw landmarks on the mirrored canvas, we usually do `(1-x) * width`.
-
-            const tipX = (1 - indexTip.x) * this.canvasWidth;
-            const tipY = indexTip.y * this.canvasHeight;
-
+    update(pointers: { x: number, y: number }[]) {
+        for (const point of pointers) {
             this.bubbles.forEach(bubble => {
                 if (bubble.isPopped) {
                     if (bubble.popProgress < 1) {
@@ -101,8 +82,8 @@ export class BubbleSystem {
                 }
 
                 // Euclidean distance check
-                const dx = tipX - bubble.x;
-                const dy = tipY - bubble.y;
+                const dx = point.x - bubble.x;
+                const dy = point.y - bubble.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < bubble.radius) {

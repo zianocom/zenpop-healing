@@ -3,7 +3,6 @@ import { useHandTracking } from '../hooks/useHandTracking';
 import { BubbleSystem } from '../game/BubbleSystem';
 import { AudioSystem } from '../game/AudioSystem';
 import type { HandLandmarkerResult } from '@mediapipe/tasks-vision';
-import { HandLandmarker, DrawingUtils } from '@mediapipe/tasks-vision';
 import { PaymentComponent } from './PaymentComponent';
 import { X, Gem } from 'lucide-react';
 import { incrementGlobalPops, subscribeToGlobalPops } from '../services/db';
@@ -105,6 +104,65 @@ export const ZenCanvas = () => {
         resultsRef.current = results;
     }, [results]);
 
+    const calculateScreenCoordinates = (normalizedX: number, normalizedY: number) => {
+        if (!videoRef.current || !canvasRef.current) return { x: 0, y: 0 };
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        if (!videoWidth || !videoHeight) return { x: 0, y: 0 };
+
+        // Calculate Scale to maintain aspect ratio (object-cover logic)
+        const scale = Math.max(canvasWidth / videoWidth, canvasHeight / videoHeight);
+
+        const scaledWidth = videoWidth * scale;
+        const scaledHeight = videoHeight * scale;
+
+        // Calculate offsets (centering)
+        const offsetX = (canvasWidth - scaledWidth) / 2;
+        const offsetY = (canvasHeight - scaledHeight) / 2;
+
+        // Mirroring: MediaPipe x is 0(left) -> 1(right).
+        // CSS transform scaleX(-1) mirrors the visual video.
+        // If we want to interact with what we see, we need to treat the "visual" left as x=0.
+        // Visual Video:
+        // [   Cropped   |   Visible Canvas   |   Cropped   ]
+        // 0             | offset             | offset+width (in scaled coords)
+
+        // MediaPipe X (0..1) maps to Scaled X (0..scaledWidth)
+        // ScaledX = normalizedX * scaledWidth
+        // But since we are mirrored:
+        // Visual X on screen = (1 - normalizedX) * scaledWidth + offsetX ??
+        // Let's trace:
+        // Real World Right Hand -> Camera Right Side -> Image X=1.
+        // Mirrored Display -> User sees Hand on Right Side of Screen (Canvas X=Width).
+        // So Image X=1 should map to Canvas X=Width.
+        // Image X=0 (Left) -> Mirrored -> Screen Left (Canvas X=0).
+        // Wait, scaleX(-1) flips the element.
+        // Content at Image X=0 is drawn at Element X=Right-most?
+        // No, standard CSS scaleX(-1) flips around center? Or origin? Usually center if transform-origin is 50% 50%.
+
+        // Let's stick to the standard "Selfie Mirror" logic.
+        // You raise right hand. Camera sees it on LEFT of image (subject's right). Image X ~ 0.
+        // You want to see it on RIGHT of screen (mirror). Canvas X ~ Width.
+        // Use normalizedX directly?
+        // If X=0 (Left of image), we want it at Right of Screen? Yes.
+        // So (1 - normalizedX).
+
+        // Visual X in Scaled Video Space: (1 - normalizedX) * scaledWidth.
+        // Visual X in Canvas Space: ((1 - normalizedX) * scaledWidth) + offsetX.
+
+        const screenX = ((1 - normalizedX) * scaledWidth) + offsetX;
+        const screenY = (normalizedY * scaledHeight) + offsetY;
+
+        return { x: screenX, y: screenY };
+    };
+
     useEffect(() => {
         const loop = () => {
             if (canvasRef.current) {
@@ -112,26 +170,51 @@ export const ZenCanvas = () => {
                 if (ctx) {
                     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-                    bubbleSystemRef.current.update(resultsRef.current);
+                    // 1. Calculate Pointers
+                    const pointers: { x: number, y: number }[] = [];
+                    if (resultsRef.current && resultsRef.current.landmarks) {
+                        for (const landmarks of resultsRef.current.landmarks) {
+                            const indexTip = landmarks[8];
+                            if (indexTip) {
+                                const coords = calculateScreenCoordinates(indexTip.x, indexTip.y);
+                                pointers.push(coords);
+                            }
+                        }
+                    }
+
+                    // 2. Update Physics
+                    bubbleSystemRef.current.update(pointers);
                     bubbleSystemRef.current.draw(ctx);
 
+                    // 3. Draw Debug Skeleton if needed
                     if (resultsRef.current && resultsRef.current.landmarks) {
+                        // DrawingUtils draws directly to canvas using normalized coordinates context.
+                        // But since correct mapping is complex with object-cover,
+                        // Let's just draw generic circles at our calculated hit points to verify sync.
+
+                        pointers.forEach(p => {
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, 10, 0, 2 * Math.PI);
+                            ctx.fillStyle = "rgba(255, 0, 0, 0.5)"; // Semi-transparent red
+                            ctx.fill();
+                            ctx.strokeStyle = "white";
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        });
+
+                        // Optional: Keep original skeleton if it looks okay, but it might be misaligned.
+                        // Let's comment out the potentially misleading skeleton for now
+                        /*
                         ctx.save();
                         ctx.scale(-1, 1);
                         ctx.translate(-canvasRef.current.width, 0);
-
                         const drawingUtils = new DrawingUtils(ctx);
                         for (const landmarks of resultsRef.current.landmarks) {
-                            drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {
-                                color: "#00FF00",
-                                lineWidth: 5
-                            });
-                            drawingUtils.drawLandmarks(landmarks, {
-                                color: "#FF0000",
-                                lineWidth: 2
-                            });
+                            drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, { color: "#00FF00", lineWidth: 5 });
+                            drawingUtils.drawLandmarks(landmarks, { color: "#FF0000", lineWidth: 2 });
                         }
                         ctx.restore();
+                        */
                     }
                 }
             }
