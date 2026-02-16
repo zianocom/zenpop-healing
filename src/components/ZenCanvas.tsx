@@ -46,10 +46,12 @@ export const ZenCanvas = () => {
     const bubbleSystemRef = useRef<BubbleSystem>(new BubbleSystem(
         () => {
             if (!isMuted && audioSystemRef.current) audioSystemRef.current.playPop();
+            if (navigator.vibrate) navigator.vibrate(10); // Haptic feedback
             localPopsRef.current += 1;
         },
         () => {
             if (!isMuted && audioSystemRef.current) audioSystemRef.current.playPop(0.5);
+            if (navigator.vibrate) navigator.vibrate([10, 50, 10]); // Golden pop haptic pattern
             localPopsRef.current += 5;
             fetchHealingQuote();
         }

@@ -12,8 +12,19 @@ interface Bubble {
     popProgress: number;
 }
 
+interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number; // 0 to 1
+    color: string;
+    size: number;
+}
+
 export class BubbleSystem {
     private bubbles: Bubble[] = [];
+    private particles: Particle[] = [];
     private canvasWidth: number = 0;
     private canvasHeight: number = 0;
     private hexRadius: number = 40; // Size of hex bubbles
@@ -88,6 +99,18 @@ export class BubbleSystem {
                 }
             });
         }
+
+        // Update Particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.05; // Fade out
+            p.size *= 0.95; // Shrink
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+            }
+        }
     }
 
     private popBubble(bubble: Bubble) {
@@ -95,6 +118,24 @@ export class BubbleSystem {
         // visual pop effect handled in draw
         if (this.onPop) this.onPop();
         if (bubble.type === 'golden' && this.onGoldenPop) this.onGoldenPop();
+        this.spawnParticles(bubble.x, bubble.y, bubble.color);
+    }
+
+    private spawnParticles(x: number, y: number, color: string) {
+        const count = 8;
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                color: color,
+                size: Math.random() * 5 + 2
+            });
+        }
     }
 
     draw(ctx: CanvasRenderingContext2D) {
@@ -123,7 +164,7 @@ export class BubbleSystem {
                 gradient.addColorStop(0.3, '#FFD700'); // Gold
                 gradient.addColorStop(1, '#B8860B'); // Shadow
             } else {
-                // Parse base color (HSL) or use fixed logic? 
+                // Parse base color (HSL) or use fixed logic?
                 // Simple 3D effect for varying HSL is tricky to "parse" back.
                 // Let's just use white highlight + the bubble color + darker shadow
                 gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)'); // Highlight
@@ -142,6 +183,16 @@ export class BubbleSystem {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
             ctx.fill();
 
+            ctx.globalAlpha = 1;
+        });
+
+        // Draw Particles
+        this.particles.forEach(p => {
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
             ctx.globalAlpha = 1;
         });
     }
